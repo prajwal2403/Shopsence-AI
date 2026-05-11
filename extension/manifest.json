@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "ShopSense AI",
+  "version": "1.0.0",
+  "description": "Instant AI-powered product ratings, pros/cons, and review summaries while you shop.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Open ShopSense AI"
+  },
+  "side_panel": {
+    "default_path": "src/popup/index.html"
+  },
+  "background": {
+    "service_worker": "src/background/service_worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.amazon.in/*",
+        "*://*.amazon.com/*",
+        "*://*.flipkart.com/*",
+        "*://*.myntra.com/*",
+        "*://*.meesho.com/*",
+        "*://*.nykaa.com/*",
+        "*://*.snapdeal.com/*"
+      ],
+      "js": ["src/content/index.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "*://*.amazon.in/*",
+    "*://*.amazon.com/*",
+    "*://*.flipkart.com/*",
+    "*://*.myntra.com/*",
+    "*://*.meesho.com/*",
+    "*://*.nykaa.com/*",
+    "*://*.snapdeal.com/*",
+    "https://*.railway.app/*",
+    "https://*.vercel.app/*",
+    "http://localhost:8000/*"
+  ]
+}

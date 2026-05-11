@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base reset ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #070B14;
+  color: #E2E8F0;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Side panel always scrollable */
+#root { overflow-y: auto; }
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #070B14; }
+::-webkit-scrollbar-thumb { background: #1E2D4A; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #2D4470; }
+
+/* ─── Shimmer skeleton animation ─────────────────────────────────────────── */
+@layer components {
+  .skeleton {
+    @apply rounded-lg bg-surface-elevated;
+    background: linear-gradient(
+      90deg,
+      #131D35 25%,
+      #1E2D4A 50%,
+      #131D35 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+}
+
+/* ─── Score ring gradient animation ─────────────────────────────────────── */
+.score-ring-track {
+  stroke: #1E2D4A;
+}
+.score-ring-fill {
+  transition: stroke-dashoffset 1.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              stroke 0.6s ease;
+  transform-origin: center;
+  transform: rotate(-90deg);
+}
+
+/* ─── Platform badge ────────────────────────────────────────────────────── */
+.platform-badge {
+  @apply text-xs font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider;
+}
+.platform-amazon  { background: #FF9900; color: #070B14; }
+.platform-flipkart { background: #2874F0; color: #fff; }
+.platform-myntra  { background: #FF3F6C; color: #fff; }
+.platform-meesho  { background: #9B2C8B; color: #fff; }
+.platform-nykaa   { background: #FC3F7B; color: #fff; }
+.platform-snapdeal { background: #E40026; color: #fff; }
+
+/* ─── Glass card ─────────────────────────────────────────────────────────── */
+.glass-card {
+  background: rgba(13, 20, 36, 0.8);
+  border: 1px solid rgba(30, 45, 74, 0.8);
+  backdrop-filter: blur(12px);
+  border-radius: 12px;
+}
+
+/* ─── Pill tags ──────────────────────────────────────────────────────────── */
+.pill-strength {
+  @apply text-xs font-medium px-3 py-1.5 rounded-full;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #10B981;
+}
+.pill-limitation {
+  @apply text-xs font-medium px-3 py-1.5 rounded-full;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #EF4444;
+}
+
+/* ─── Spinner ────────────────────────────────────────────────────────────── */
+.spinner {
+  border: 2px solid rgba(99, 102, 241, 0.2);
+  border-top-color: #6366F1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Pulse dot ──────────────────────────────────────────────────────────── */
+.pulse-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #6366F1;
+  animation: pulseDot 1.5s ease-in-out infinite;
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
