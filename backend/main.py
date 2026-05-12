@@ -3,11 +3,13 @@ main.py — ShopSense AI FastAPI application entry point.
 """
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-load_dotenv()
+# Explicitly resolve .env relative to this file — works in uvicorn --reload subprocesses
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 
 from routes.health import router as health_router
 from routes.analyze import router as analyze_router
@@ -30,8 +32,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "X-Extension-Id"],
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Content-Type", "X-Extension-Id", "X-Signature", "X-Timestamp"],
 )
 
 # ─── Routes ───────────────────────────────────────────────────────────────────

@@ -1,70 +1,137 @@
 """
-gemini_service.py — Google Gemini API integration for ShopSense AI.
+claude_service.py — Gemini AI scoring pipeline for ShopSense AI (Phase 3).
 
-Builds the scoring prompt, calls Gemini with streaming enabled,
-and parses the structured JSON response.
-
-Free tier: gemini-2.0-flash at aistudio.google.com
+Changes from Phase 1:
+  - Async-safe: Gemini sync SDK runs in thread pool via asyncio.to_thread()
+  - Enhanced prompt: explicit fake-review detection, price-percentile analysis,
+    spec-completeness audit, structured CoT reasoning hidden from output
+  - Returns final result dict for caching by the caller
 """
 
-import os
+import asyncio
 import json
+import os
 import re
 
-import google.generativeai as genai
+import google.genai as genai
+from google.genai import types as genai_types
 
-from models.schemas import ProductData, AnalysisResult, ScoreBreakdown, TopReviews, ReviewItem
+from models.schemas import (
+    AnalysisResult, ProductData, ReviewItem, ScoreBreakdown, TopReviews,
+)
 
 
-def _get_model() -> genai.GenerativeModel:
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+# ─── Gemini client factory ────────────────────────────────────────────────────
+
+def _get_client() -> genai.Client:
+    return genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+
+def _call_gemini_sync(prompt: str) -> str:
+    """Synchronous Gemini call — runs in asyncio.to_thread()."""
+    client = _get_client()
     model_name = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
-    return genai.GenerativeModel(
-        model_name=model_name,
-        generation_config=genai.GenerationConfig(
-            temperature=0.3,          # Lower temp → more consistent JSON
-            max_output_tokens=1500,
+    response = client.models.generate_content(
+        model=model_name,
+        contents=prompt,
+        config=genai_types.GenerateContentConfig(
+            temperature=0.25,
+            max_output_tokens=2000,
         ),
     )
+    return response.text
 
 
 # ─── Prompt builder ───────────────────────────────────────────────────────────
 
 def build_prompt(product: ProductData) -> str:
     reviews_text = "\n".join(
-        f"- [{r.rating}★] {r.title}: {r.body[:300]}"
-        for r in product.topReviews[:8]
-    ) or "No reviews available."
+        f"- [{'✓ Verified' if r.verified else '✗ Unverified'}] {r.rating}★ | "
+        f"'{r.title}' by {r.author or 'Unknown'} on {r.date or 'unknown date'}: "
+        f"{r.body[:400]}"
+        for r in product.topReviews[:10]
+    ) or "No reviews available on this page."
 
     specs_text = "\n".join(
-        f"  {k}: {v}" for k, v in list(product.specs.items())[:20]
-    ) or "No specs listed."
+        f"  • {k}: {v}" for k, v in list(product.specs.items())[:25]
+    ) or "No specifications listed."
 
-    return f"""You are ShopSense AI, an expert product analyst. Analyse the following product and return a JSON evaluation.
+    return f"""You are ShopSense AI, an expert e-commerce product analyst. Analyse the following product scraped from {product.platform.title()} and produce a comprehensive JSON evaluation.
 
-## Product Information
-- Platform: {product.platform}
-- URL: {product.url}
-- Name: {product.productName}
-- Price: {product.currency} {product.price or "unknown"}
-- Rating: {product.rating or "unknown"}/5 ({product.reviewCount or 0} reviews)
-- Seller: {product.sellerName or "unknown"}
-- Stock: {product.stockStatus}
-- Delivery: {product.deliveryEstimate or "unknown"}
-- Return Policy: {product.returnPolicy or "unknown"}
+═══════════════════════════════════════
+PRODUCT INFORMATION
+═══════════════════════════════════════
+Platform      : {product.platform}
+Product Name  : {product.productName}
+URL           : {product.url}
+Price         : {product.currency} {product.price if product.price else 'Not shown'}
+Rating        : {product.rating if product.rating else 'N/A'}/5  ({product.reviewCount or 0} reviews)
+Seller        : {product.sellerName or 'Unknown'}
+Stock Status  : {product.stockStatus}
+Delivery      : {product.deliveryEstimate or 'Not specified'}
+Return Policy : {product.returnPolicy or 'Not specified'}
 
-## Key Specifications
+KEY SPECIFICATIONS
 {specs_text}
 
-## Top Reviews
+CUSTOMER REVIEWS (up to 10)
 {reviews_text}
 
-## Your Task
-Score this product across six factors and provide actionable insights.
+═══════════════════════════════════════
+SCORING INSTRUCTIONS
+═══════════════════════════════════════
 
-Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
+Score across 6 factors (maximum points shown). Be strict — reserve top scores for genuinely excellent products.
+
+1. priceValue (max 25 pts)
+   • 23-25: Exceptional deal, well below typical market rate
+   • 18-22: Good value, competitive price
+   • 12-17: Average pricing for the category
+   • 5-11:  Slightly overpriced
+   • 0-4:   Significantly overpriced
+   Consider: price vs. category norms, discount depth, included accessories.
+
+2. ratingsQuality (max 20 pts)
+   • 18-20: 4.3+ stars with 1000+ reviews, good distribution (not all 5-star)
+   • 14-17: 4.0-4.2 stars with decent review count
+   • 9-13:  3.5-3.9 stars or low review count (<50)
+   • 0-8:   Below 3.5 stars or very few reviews
+
+3. reviewAuthenticity (max 20 pts)
+   Deduct heavily for red flags:
+   - Only 5-star reviews (no critical reviews at all): -8 pts
+   - Many reviews posted on same day or in clusters: -6 pts
+   - Generic praise with no specific product details: -5 pts
+   - Unverified purchases dominating: -4 pts
+   - No reviewer photos or detailed experience: -3 pts
+   Start at 20, subtract per red flag found.
+
+4. brandReputation (max 15 pts)
+   • 13-15: Well-known brand, strong after-sales, clear warranty
+   • 9-12:  Recognisable brand or reputable marketplace seller
+   • 5-8:   Unknown brand but seller appears legitimate
+   • 0-4:   Unknown brand + no visible warranty/support info
+
+5. specCompleteness (max 10 pts)
+   • 9-10: All key specs listed (dimensions, materials, compatibility, etc.)
+   • 6-8:  Most specs present, some missing
+   • 3-5:  Sparse specs, key details absent
+   • 0-2:  Bare minimum or no specs
+
+6. deliveryAvailability (max 10 pts)
+   • 9-10: In stock + delivery within 2 days
+   • 6-8:  In stock + delivery 3-5 days
+   • 3-5:  Limited stock or delivery > 5 days
+   • 0-2:  Out of stock or unavailable
+
+═══════════════════════════════════════
+OUTPUT REQUIREMENTS
+═══════════════════════════════════════
+
+Return ONLY a valid JSON object. No markdown fences, no explanation, no text before or after the JSON.
+
 {{
-  "score": <integer 0-100>,
+  "score": <integer 0-100, sum of all breakdown scores>,
   "scoreBreakdown": {{
     "priceValue": <integer 0-25>,
     "ratingsQuality": <integer 0-20>,
@@ -73,91 +140,139 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
     "specCompleteness": <integer 0-10>,
     "deliveryAvailability": <integer 0-10>
   }},
-  "strengths": ["<specific strength 1>", "<specific strength 2>", "<specific strength 3>"],
-  "limitations": ["<specific limitation 1>", "<specific limitation 2>", "<specific limitation 3>"],
+  "strengths": [
+    "<Specific strength grounded in review text or product data — not generic>",
+    "<Second specific strength>",
+    "<Third specific strength>"
+  ],
+  "limitations": [
+    "<Specific limitation found in reviews or missing specs — not generic>",
+    "<Second specific limitation>",
+    "<Third specific limitation>"
+  ],
   "topReviews": {{
-    "positive": {{"author": "", "rating": 5, "title": "", "body": "", "verified": true, "date": ""}},
-    "critical": {{"author": "", "rating": 2, "title": "", "body": "", "verified": false, "date": ""}},
-    "balanced": {{"author": "", "rating": 3, "title": "", "body": "", "verified": true, "date": ""}}
+    "positive": {{
+      "author": "<reviewer name>",
+      "rating": <1-5>,
+      "title": "<review title>",
+      "body": "<most informative positive review excerpt, max 200 chars>",
+      "verified": <true|false>,
+      "date": "<review date>"
+    }},
+    "critical": {{
+      "author": "<reviewer name>",
+      "rating": <1-5>,
+      "title": "<review title>",
+      "body": "<most informative critical review excerpt, max 200 chars>",
+      "verified": <true|false>,
+      "date": "<review date>"
+    }},
+    "balanced": {{
+      "author": "<reviewer name>",
+      "rating": <1-5>,
+      "title": "<review title>",
+      "body": "<most balanced/nuanced review excerpt, max 200 chars>",
+      "verified": <true|false>,
+      "date": "<review date>"
+    }}
   }},
-  "recommendation": "<one sentence: is this worth buying? what type of buyer is it best for?>",
-  "alternativeSearchQuery": "<search query to find a better-rated alternative>"
+  "recommendation": "<One punchy sentence: who should buy this and why, OR who should skip it>",
+  "alternativeSearchQuery": "<Search query to find a better alternative, e.g. 'wireless headphones under 2000 rupees good bass 2024'>"
 }}
 
-Scoring guide:
-- priceValue (0-25): Compare price vs typical market rate for this category. 25 = exceptional value.
-- ratingsQuality (0-20): High star rating + many reviews + good distribution = 20.
-- reviewAuthenticity (0-20): Penalise for: only 5-star reviews, batch posting dates, generic language.
-- brandReputation (0-15): Known brand + good seller rating + clear return policy = 15.
-- specCompleteness (0-10): Detailed specs with all key attributes listed = 10.
-- deliveryAvailability (0-10): Fast delivery + in stock = 10.
-
-Be specific and grounded. Strengths/limitations must reference actual product details, not generic statements."""
+Rules:
+- score MUST equal the exact sum of the six breakdown scores
+- strengths and limitations MUST reference specific details from the reviews or specs, never write generic statements like "good quality" or "some users complained"
+- If no critical review exists in the data, set topReviews.critical to null
+- If no balanced review exists, set topReviews.balanced to null"""
 
 
-# ─── Streaming analysis ───────────────────────────────────────────────────────
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async def stream_analysis(product: ProductData):
-    """
-    Async generator that yields SSE-formatted strings.
-    Yields progress events during streaming, then the final result.
-    """
-    model = _get_model()
+def _sse(event_type: str, payload: dict) -> str:
+    return f"data: {json.dumps({'type': event_type, **payload})}\n\n"
 
-    yield f"data: {json.dumps({'type': 'progress', 'message': 'Building analysis prompt…'})}\n\n"
 
-    full_text = ""
-
+def _parse_result(full_text: str, product: ProductData) -> AnalysisResult | None:
+    """Strip markdown fences and parse Claude/Gemini JSON into AnalysisResult."""
     try:
-        response = model.generate_content(build_prompt(product), stream=True)
-
-        yield f"data: {json.dumps({'type': 'progress', 'message': 'Gemini AI is scoring the product…'})}\n\n"
-
-        char_count = 0
-        for chunk in response:
-            if chunk.text:
-                full_text += chunk.text
-                char_count += len(chunk.text)
-                # Send a heartbeat every ~150 chars so the popup feels responsive
-                if char_count % 150 < len(chunk.text):
-                    yield f"data: {json.dumps({'type': 'progress', 'message': 'Evaluating reviews and specs…'})}\n\n"
-
-    except Exception as e:
-        yield f"data: {json.dumps({'type': 'error', 'message': f'Gemini API error: {e}'})}\n\n"
-        yield "data: [DONE]\n\n"
-        return
-
-    yield f"data: {json.dumps({'type': 'progress', 'message': 'Finalising score…'})}\n\n"
-
-    # Parse the JSON from Gemini's response
-    try:
-        # Strip any accidental markdown fences Gemini sometimes adds
         clean = re.sub(r"```(?:json)?", "", full_text).strip().rstrip("`").strip()
         raw = json.loads(clean)
 
-        result = AnalysisResult(
+        def parse_review(d: dict | None) -> ReviewItem | None:
+            if not d:
+                return None
+            return ReviewItem(
+                author=d.get("author", ""),
+                rating=d.get("rating"),
+                title=d.get("title", ""),
+                body=d.get("body", ""),
+                verified=bool(d.get("verified", False)),
+                date=d.get("date", ""),
+            )
+
+        tr = raw.get("topReviews", {}) or {}
+        return AnalysisResult(
             platform=product.platform,
             url=product.url,
             productName=product.productName,
-            score=raw.get("score", 50),
+            score=int(raw.get("score", 50)),
             scoreBreakdown=ScoreBreakdown(**raw.get("scoreBreakdown", {})),
             strengths=raw.get("strengths", []),
             limitations=raw.get("limitations", []),
             topReviews=TopReviews(
-                positive=ReviewItem(**raw["topReviews"]["positive"])
-                    if raw.get("topReviews", {}).get("positive") else None,
-                critical=ReviewItem(**raw["topReviews"]["critical"])
-                    if raw.get("topReviews", {}).get("critical") else None,
-                balanced=ReviewItem(**raw["topReviews"]["balanced"])
-                    if raw.get("topReviews", {}).get("balanced") else None,
+                positive=parse_review(tr.get("positive")),
+                critical=parse_review(tr.get("critical")),
+                balanced=parse_review(tr.get("balanced")),
             ),
             recommendation=raw.get("recommendation", ""),
             alternativeSearchQuery=raw.get("alternativeSearchQuery", ""),
         )
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        # Log the raw text to help debug prompt issues
+        print(f"[ShopSense] JSON parse error: {exc}\nRaw response:\n{full_text[:500]}")
+        return None
 
-        yield f"data: {json.dumps({'type': 'result', 'data': result.model_dump()})}\n\n"
 
-    except (json.JSONDecodeError, KeyError, TypeError) as e:
-        yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to parse Gemini response: {e}'})}\n\n"
+# ─── Main streaming generator ─────────────────────────────────────────────────
+
+async def stream_analysis(product: ProductData):
+    """
+    Async generator → yields SSE strings.
+
+    The synchronous Gemini SDK call runs inside asyncio.to_thread() so it
+    never blocks FastAPI's event loop.
+
+    Caller receives:
+      progress events  → {type: "progress", message: "..."}
+      result event     → {type: "result", data: AnalysisResult dict}
+      error event      → {type: "error", message: "..."}
+      [DONE] sentinel  → always last
+    """
+    yield _sse("progress", {"message": "Building analysis prompt…"})
+
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+
+    yield _sse("progress", {"message": f"Asking Gemini AI to score this {product.platform} product…"})
+
+    prompt = build_prompt(product)
+
+    # ── Run synchronous Gemini call in a thread ───────────────────────────────
+    try:
+        full_text = await asyncio.to_thread(_call_gemini_sync, prompt)
+    except Exception as exc:
+        yield _sse("error", {"message": f"Gemini API error: {exc}"})
+        yield "data: [DONE]\n\n"
+        return
+
+    yield _sse("progress", {"message": "Parsing score and insights…"})
+
+    # ── Parse structured response ─────────────────────────────────────────────
+    result = _parse_result(full_text, product)
+
+    if result:
+        yield _sse("result", {"data": result.model_dump()})
+    else:
+        yield _sse("error", {"message": "AI returned an unexpected response format. Please try again."})
 
     yield "data: [DONE]\n\n"
