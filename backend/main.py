@@ -6,7 +6,9 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 # Explicitly resolve .env relative to this file — works in uvicorn --reload subprocesses
 load_dotenv(dotenv_path=Path(__file__).parent / ".env")
@@ -23,18 +25,64 @@ app = FastAPI(
 )
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
-# Browser extensions need CORS to call from content/background scripts.
-# In production restrict ALLOWED_ORIGINS to your extension's chrome-extension:// origin.
+# FastAPI's built-in CORSMiddleware uses "*" which the spec limits to http/https
+# schemes only — chrome-extension:// and moz-extension:// origins are silently
+# dropped. We use a custom middleware that explicitly echoes back any
+# chrome-extension:// or moz-extension:// origin, plus the configured
+# http/https origins.
 
-allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Content-Type", "X-Extension-Id", "X-Signature", "X-Timestamp"],
+ALLOWED_HTTP_ORIGINS = set(
+    o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 )
+ALLOWED_METHODS = "GET, POST, DELETE, OPTIONS"
+ALLOWED_HEADERS = "Content-Type, X-Extension-Id, X-Signature, X-Timestamp"
+
+
+class ExtensionCORSMiddleware(BaseHTTPMiddleware):
+    """
+    CORS middleware that accepts:
+      - Any chrome-extension:// or moz-extension:// origin (browser extension sand-boxed env)
+      - Any origin listed in ALLOWED_HTTP_ORIGINS (or * for all http/https)
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        origin = request.headers.get("origin", "")
+        allow_origin = self._resolve_origin(origin)
+
+        # Short-circuit OPTIONS preflight
+        if request.method == "OPTIONS":
+            return Response(
+                status_code=204,
+                headers={
+                    "Access-Control-Allow-Origin": allow_origin,
+                    "Access-Control-Allow-Methods": ALLOWED_METHODS,
+                    "Access-Control-Allow-Headers": ALLOWED_HEADERS,
+                    "Access-Control-Max-Age": "86400",
+                },
+            )
+
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = allow_origin
+        response.headers["Access-Control-Allow-Methods"] = ALLOWED_METHODS
+        response.headers["Access-Control-Allow-Headers"] = ALLOWED_HEADERS
+        return response
+
+    @staticmethod
+    def _resolve_origin(origin: str) -> str:
+        # Always allow browser extension origins (Chrome, Edge, Firefox)
+        if origin.startswith(("chrome-extension://", "moz-extension://", "safari-extension://")):
+            return origin
+        # Allow wildcard
+        if "*" in ALLOWED_HTTP_ORIGINS:
+            return "*"
+        # Allow explicitly listed origins
+        if origin in ALLOWED_HTTP_ORIGINS:
+            return origin
+        # Fallback — deny by not setting a permissive origin
+        return "null"
+
+
+app.add_middleware(ExtensionCORSMiddleware)
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
 

@@ -4,6 +4,12 @@ import Header from './components/Header'
 import LoadingSkeleton from './components/LoadingSkeleton'
 import EmptyState from './components/EmptyState'
 import ErrorState from './components/ErrorState'
+import ScoreRing from './components/ScoreRing'
+import FactorBreakdown from './components/FactorBreakdown'
+import StrengthsLimitations from './components/StrengthsLimitations'
+import ReviewCards from './components/ReviewCards'
+import Recommendations from './components/Recommendations'
+import Footer from './components/Footer'
 
 // ─── App State Machine ────────────────────────────────────────────────────────
 
@@ -106,9 +112,12 @@ export default function App() {
   }
 
   const { status, statusMessage, result, error, fromCache, cachedAt } = state
+  const isLoading = status === STATES.IDLE || status === STATES.SCRAPING || status === STATES.ANALYZING
+  const isSuccess = status === STATES.SUCCESS && result
 
   return (
     <div className="flex flex-col min-h-screen bg-surface text-text-primary">
+      {/* ── Header ── */}
       <Header
         status={status}
         platform={result?.platform || null}
@@ -117,32 +126,58 @@ export default function App() {
         onRefresh={handleRefresh}
       />
 
-      <main className="flex-1 p-4">
-        {(status === STATES.IDLE || status === STATES.SCRAPING || status === STATES.ANALYZING) && (
-          <LoadingSkeleton statusMessage={statusMessage} />
-        )}
+      {/* ── Main scrollable content ── */}
+      <main className="flex-1 p-4 pb-2 space-y-4">
+        {/* Loading skeleton */}
+        {isLoading && <LoadingSkeleton statusMessage={statusMessage} />}
 
+        {/* Not a product page */}
         {status === STATES.NOT_PRODUCT && <EmptyState />}
 
+        {/* Error state */}
         {status === STATES.ERROR && (
           <ErrorState message={error} onRetry={handleRefresh} />
         )}
 
-        {status === STATES.SUCCESS && result && (
-          <div className="animate-fade-in space-y-4">
-            {/* Phase 2-4 components will be added here */}
-            <div className="glass-card p-6 text-center">
-              <p className="text-text-secondary text-sm">
-                ✅ Product detected on <span className="text-accent font-semibold capitalize">{result.platform}</span>
-              </p>
-              <p className="text-text-muted text-xs mt-2 break-all">{result.url}</p>
-              <p className="text-text-muted text-xs mt-4">
-                Full scoring UI coming in Phase 4.
-              </p>
-            </div>
+        {/* ── Success: full analysis UI ── */}
+        {isSuccess && (
+          <div className="space-y-4">
+            {/* 1. Score ring */}
+            <ScoreRing
+              score={result.score ?? 0}
+              productName={result.productName}
+            />
+
+            {/* 2. Factor breakdown */}
+            <FactorBreakdown breakdown={result.scoreBreakdown} />
+
+            {/* 3. Strengths & Limitations */}
+            <StrengthsLimitations
+              strengths={result.strengths ?? []}
+              limitations={result.limitations ?? []}
+            />
+
+            {/* 4. Review cards */}
+            <ReviewCards topReviews={result.topReviews} />
+
+            {/* 5. Recommendations carousel */}
+            <Recommendations
+              recommendation={result.recommendation}
+              alternativeSearchQuery={result.alternativeSearchQuery}
+              platform={result.platform}
+            />
           </div>
         )}
       </main>
+
+      {/* ── Footer (only when analysis is done) ── */}
+      {isSuccess && (
+        <Footer
+          cachedAt={cachedAt}
+          fromCache={fromCache}
+          onRefresh={handleRefresh}
+        />
+      )}
     </div>
   )
 }

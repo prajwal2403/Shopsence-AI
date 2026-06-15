@@ -1,8 +1,8 @@
 """
-claude_service.py — Gemini AI scoring pipeline for ShopSense AI (Phase 3).
+claude_service.py — Groq AI scoring pipeline for ShopSense AI.
 
-Changes from Phase 1:
-  - Async-safe: Gemini sync SDK runs in thread pool via asyncio.to_thread()
+Uses Groq's fast inference API with llama-3.3-70b-versatile (free tier).
+  - Async-safe: Groq sync SDK runs in thread pool via asyncio.to_thread()
   - Enhanced prompt: explicit fake-review detection, price-percentile analysis,
     spec-completeness audit, structured CoT reasoning hidden from output
   - Returns final result dict for caching by the caller
@@ -13,33 +13,40 @@ import json
 import os
 import re
 
-import google.genai as genai
-from google.genai import types as genai_types
+from groq import Groq
 
 from models.schemas import (
     AnalysisResult, ProductData, ReviewItem, ScoreBreakdown, TopReviews,
 )
 
 
-# ─── Gemini client factory ────────────────────────────────────────────────────
+# ─── Groq client factory ──────────────────────────────────────────────────────
 
-def _get_client() -> genai.Client:
-    return genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+def _get_client() -> Groq:
+    return Groq(api_key=os.environ["GROQ_API_KEY"])
 
 
-def _call_gemini_sync(prompt: str) -> str:
-    """Synchronous Gemini call — runs in asyncio.to_thread()."""
+def _call_groq_sync(prompt: str) -> str:
+    """Synchronous Groq call — runs in asyncio.to_thread()."""
     client = _get_client()
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
-    response = client.models.generate_content(
+    model_name = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+    response = client.chat.completions.create(
         model=model_name,
-        contents=prompt,
-        config=genai_types.GenerateContentConfig(
-            temperature=0.25,
-            max_output_tokens=2000,
-        ),
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are ShopSense AI, an expert e-commerce product analyst. "
+                    "Always respond with valid JSON only — no markdown fences, "
+                    "no explanation, no text before or after the JSON."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.25,
+        max_tokens=2000,
     )
-    return response.text
+    return response.choices[0].message.content
 
 
 # ─── Prompt builder ───────────────────────────────────────────────────────────
@@ -56,7 +63,7 @@ def build_prompt(product: ProductData) -> str:
         f"  • {k}: {v}" for k, v in list(product.specs.items())[:25]
     ) or "No specifications listed."
 
-    return f"""You are ShopSense AI, an expert e-commerce product analyst. Analyse the following product scraped from {product.platform.title()} and produce a comprehensive JSON evaluation.
+    return f"""Analyse the following product scraped from {product.platform.title()} and produce a comprehensive JSON evaluation.
 
 ═══════════════════════════════════════
 PRODUCT INFORMATION
@@ -194,7 +201,7 @@ def _sse(event_type: str, payload: dict) -> str:
 
 
 def _parse_result(full_text: str, product: ProductData) -> AnalysisResult | None:
-    """Strip markdown fences and parse Claude/Gemini JSON into AnalysisResult."""
+    """Strip markdown fences and parse Groq JSON into AnalysisResult."""
     try:
         clean = re.sub(r"```(?:json)?", "", full_text).strip().rstrip("`").strip()
         raw = json.loads(clean)
@@ -240,7 +247,7 @@ async def stream_analysis(product: ProductData):
     """
     Async generator → yields SSE strings.
 
-    The synchronous Gemini SDK call runs inside asyncio.to_thread() so it
+    The synchronous Groq SDK call runs inside asyncio.to_thread() so it
     never blocks FastAPI's event loop.
 
     Caller receives:
@@ -251,17 +258,17 @@ async def stream_analysis(product: ProductData):
     """
     yield _sse("progress", {"message": "Building analysis prompt…"})
 
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    model_name = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-    yield _sse("progress", {"message": f"Asking Gemini AI to score this {product.platform} product…"})
+    yield _sse("progress", {"message": f"Asking Groq AI ({model_name}) to score this {product.platform} product…"})
 
     prompt = build_prompt(product)
 
-    # ── Run synchronous Gemini call in a thread ───────────────────────────────
+    # ── Run synchronous Groq call in a thread ─────────────────────────────────
     try:
-        full_text = await asyncio.to_thread(_call_gemini_sync, prompt)
+        full_text = await asyncio.to_thread(_call_groq_sync, prompt)
     except Exception as exc:
-        yield _sse("error", {"message": f"Gemini API error: {exc}"})
+        yield _sse("error", {"message": f"Groq API error: {exc}"})
         yield "data: [DONE]\n\n"
         return
 

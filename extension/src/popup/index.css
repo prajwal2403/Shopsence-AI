@@ -108,3 +108,23 @@ html, body, #root {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.7); }
 }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Carousel ───────────────────────────────────────────────────────────── */
+[style*='scrollbarWidth: none']::-webkit-scrollbar { display: none; }
+
+/* ─── Line-clamp (for product name in ScoreRing) ─────────────────────────── */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── Carousel hide scrollbar ────────────────────────────────────────────── */
+.carousel-scroll { scrollbar-width: none; }
+.carousel-scroll::-webkit-scrollbar { display: none; }

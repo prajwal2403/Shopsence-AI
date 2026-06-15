@@ -139,10 +139,13 @@ async function requestAnalysis(tabId, url, forceRefresh = false) {
 async function callAnalysisApi(productData) {
   postToPopup(MSG.STATUS_UPDATE, { status: 'analyzing', message: 'AI is analysing the product…' })
 
-  try {
+    try {
     const response = await fetch(`${API_BASE}/api/analyze`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Extension-Id': chrome.runtime.id,   // used by backend for rate limiting
+      },
       body: JSON.stringify(productData),
     })
 
@@ -176,13 +179,15 @@ async function callAnalysisApi(productData) {
             postToPopup(MSG.ANALYSIS_PROGRESS, chunk)
           } else if (chunk.type === 'result') {
             finalResult = chunk.data
+          } else if (chunk.type === 'cache_hit') {
+            // Backend cache hit — result arrives immediately
+            finalResult = chunk.data
           }
         } catch { /* skip malformed chunks */ }
       }
     }
 
     if (finalResult) {
-      // Cache it
       await setCached(productData.url, finalResult)
       postToPopup(MSG.ANALYSIS_COMPLETE, finalResult)
     } else {

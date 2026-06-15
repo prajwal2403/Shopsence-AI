@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — ShopSense AI</title>
+  <meta name="description" content="ShopSense AI privacy policy. We do not collect, store, or share any personal data." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #070B14;
+      --card: #0D1424;
+      --border: #1E2D4A;
+      --accent: #6366F1;
+      --success: #10B981;
+      --text-primary: #E2E8F0;
+      --text-secondary: #94A3B8;
+      --text-muted: #475569;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: 'Inter', system-ui, sans-serif;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(7,11,20,0.95);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-inner {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #6366F1, #A855F7);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-icon svg { width: 20px; height: 20px; }
+    .logo-text { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+    .logo-sub  { font-size: 11px; color: var(--accent); font-weight: 500; letter-spacing: 0.05em; }
+
+    /* ── Content ── */
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    .page-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .page-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 40px;
+    }
+
+    /* Highlight box */
+    .highlight {
+      background: rgba(16,185,129,0.08);
+      border: 1px solid rgba(16,185,129,0.25);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 40px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .highlight-icon {
+      width: 32px; height: 32px; flex-shrink: 0;
+      background: rgba(16,185,129,0.15);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .highlight p { font-size: 14px; color: var(--success); font-weight: 500; }
+    .highlight span { font-size: 13px; color: var(--text-secondary); font-weight: 400; }
+
+    /* Sections */
+    section { margin-bottom: 40px; }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    p, li { font-size: 14px; color: var(--text-secondary); margin-bottom: 10px; }
+    ul { padding-left: 20px; }
+    li::marker { color: var(--accent); }
+    strong { color: var(--text-primary); font-weight: 600; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Table */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    .data-table th {
+      text-align: left;
+      padding: 10px 14px;
+      background: var(--card);
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table td {
+      padding: 10px 14px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid rgba(30,45,74,0.5);
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td:first-child { color: var(--text-primary); font-weight: 500; }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 600px) {
+      .page-title { font-size: 24px; }
+      main { padding: 32px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo-icon">
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 3h2l2.5 8H15l2-6H7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="9" cy="17" r="1.2" fill="white"/>
+          <circle cx="13.5" cy="17" r="1.2" fill="white"/>
+          <path d="M12 6l1.2 1.2L12 8.4M14.5 6l-1.2 1.2 1.2 1.2" stroke="white" stroke-width="1" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-text">ShopSense AI</div>
+        <div class="logo-sub">PRIVACY POLICY</div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <h1 class="page-title">Privacy Policy</h1>
+    <p class="page-meta">Last updated: June 2026 &nbsp;·&nbsp; Effective immediately upon installation</p>
+
+    <div class="highlight">
+      <div class="highlight-icon">🛡️</div>
+      <div>
+        <p>ShopSense AI does not collect, store, or transmit any personal information.</p>
+        <span>We only read publicly visible product data from shopping pages you actively visit, and only when you open the ShopSense AI panel.</span>
+      </div>
+    </div>
+
+    <!-- 1 -->
+    <section>
+      <h2>1. What We Read (Not Collect)</h2>
+      <p>When you open ShopSense AI on a supported product page, the extension reads the following <strong>publicly visible</strong> information directly from the webpage DOM:</p>
+      <table class="data-table">
+        <thead>
+          <tr><th>Data Field</th><th>Purpose</th><th>Stored?</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Product name &amp; URL</td><td>Identify the product being analysed</td><td>Local cache only, 24hr TTL</td></tr>
+          <tr><td>Price</td><td>Price/value scoring</td><td>No</td></tr>
+          <tr><td>Star rating &amp; review count</td><td>Ratings quality scoring</td><td>No</td></tr>
+          <tr><td>Customer review text</td><td>Review authenticity &amp; insight generation</td><td>No</td></tr>
+          <tr><td>Product specifications</td><td>Spec completeness scoring</td><td>No</td></tr>
+          <tr><td>Seller name, delivery, return policy</td><td>Delivery &amp; brand scoring</td><td>No</td></tr>
+        </tbody>
+      </table>
+      <p>This data is sent to our backend API <strong>only to generate your analysis</strong> and is not logged, retained, or associated with any identity.</p>
+    </section>
+
+    <!-- 2 -->
+    <section>
+      <h2>2. What We Do Not Collect</h2>
+      <ul>
+        <li>We do <strong>not</strong> collect your name, email, or any account information.</li>
+        <li>We do <strong>not</strong> track your browsing history or which pages you visit.</li>
+        <li>We do <strong>not</strong> collect purchase history, payment information, or shopping cart contents.</li>
+        <li>We do <strong>not</strong> use cookies, fingerprinting, or any cross-site tracking.</li>
+        <li>We do <strong>not</strong> share any data with advertisers or third-party analytics services.</li>
+        <li>We do <strong>not</strong> access microphone, camera, clipboard, or any device hardware.</li>
+      </ul>
+    </section>
+
+    <!-- 3 -->
+    <section>
+      <h2>3. Local Cache</h2>
+      <p>
+        Analysis results are stored in your browser's <code>chrome.storage.local</code> for <strong>24 hours</strong> so revisiting the same product loads instantly without an additional API call. This data never leaves your device and is automatically purged after 24 hours.
+      </p>
+      <p>You can clear this cache at any time by clicking the refresh button in the ShopSense AI panel or by removing the extension.</p>
+    </section>
+
+    <!-- 4 -->
+    <section>
+      <h2>4. Backend API</h2>
+      <p>
+        ShopSense AI uses a proxy backend (hosted on Railway / Vercel) to forward product data to the Groq AI API. This proxy:
+      </p>
+      <ul>
+        <li>Receives <strong>only the product data listed in Section 1</strong> — no user identifiers are sent.</li>
+        <li>Does <strong>not log request bodies</strong> to disk.</li>
+        <li>Uses a per-session in-memory cache that is automatically cleared on server restart.</li>
+        <li>Is rate-limited using the anonymous Chrome extension ID (not a personal identifier) to prevent abuse.</li>
+      </ul>
+    </section>
+
+    <!-- 5 -->
+    <section>
+      <h2>5. Third-Party Services</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>Service</th><th>Purpose</th><th>Data Sent</th><th>Their Privacy Policy</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Groq API</td>
+            <td>AI language model inference</td>
+            <td>Product name, specs, review text (no PII)</td>
+            <td><a href="https://groq.com/privacy-policy/" target="_blank" rel="noopener">groq.com/privacy-policy</a></td>
+          </tr>
+          <tr>
+            <td>Railway / Vercel</td>
+            <td>Backend hosting</td>
+            <td>Standard HTTP request logs (IP, timestamp) — no body</td>
+            <td><a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">railway.app/legal/privacy</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 6 -->
+    <section>
+      <h2>6. Permissions Justification</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>Permission</th><th>Why It's Needed</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>activeTab</td><td>Read the product page DOM you are currently viewing — only when you open ShopSense AI.</td></tr>
+          <tr><td>storage</td><td>Cache analysis results locally (24hr TTL) so repeat visits are instant.</td></tr>
+          <tr><td>scripting</td><td>Inject the content script to read product data from the page.</td></tr>
+          <tr><td>sidePanel</td><td>Display the ShopSense AI panel in Chrome's side panel UI.</td></tr>
+          <tr><td>host_permissions (shopping sites)</td><td>Allow the content script to run on Amazon, Flipkart, Myntra, Meesho, Nykaa, and Snapdeal product pages.</td></tr>
+          <tr><td>host_permissions (localhost)</td><td>Development mode — allows the extension to reach the locally-running backend server.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 7 -->
+    <section>
+      <h2>7. Children's Privacy</h2>
+      <p>ShopSense AI is not directed at children under 13 and does not knowingly collect any information from children.</p>
+    </section>
+
+    <!-- 8 -->
+    <section>
+      <h2>8. Changes to This Policy</h2>
+      <p>We may update this policy if the extension's behaviour changes. The "Last updated" date at the top of this page will reflect any changes. Continued use of the extension after changes constitutes acceptance of the revised policy.</p>
+    </section>
+
+    <!-- 9 -->
+    <section>
+      <h2>9. Contact</h2>
+      <p>If you have questions about this privacy policy, please open an issue on our <a href="https://github.com/prajwal2403/Shopsence-AI" target="_blank" rel="noopener">GitHub repository</a>.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2026 ShopSense AI · <a href="https://github.com/prajwal2403/Shopsence-AI">GitHub</a></p>
+  </footer>
+
+</body>
+</html>
